@@ -13,27 +13,22 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/rank")
 class RankListControllers(
-    private val rankListService: RankListService,
-    private val userService: UserService
+    private val rankListService: RankListService
 ) {
-    val rankList = mutableListOf<RankRecord>(
-        RankRecord(0, "Sati"),
-        RankRecord(1, "Nishchay")
-    )
 
     @GetMapping
-    fun getCommonList(): MutableList<RankRecord> {
-        return rankList
+    fun getCommonList(): RankListDto {
+        return rankListService.generateCommonRankList()
     }
 
     @GetMapping("/{userId}")
-    fun getUserRankList(@PathVariable userId: String): String {
+    fun getUserRankList(@PathVariable userId: String): RankListDto {
         return rankListService.getUserRankList(userId)
     }
 
     @PostMapping("/{userId}")
     @ResponseStatus(HttpStatus.CREATED)
-    fun upsertUserRankList(@RequestBody rankList: String, @PathVariable userId: String) {
+    fun upsertUserRankList(@RequestBody rankList: RankListDto, @PathVariable userId: String) {
         rankListService.upsertRankList(userId, rankList)
     }
 }
@@ -76,6 +71,31 @@ class AllowedNameController(
     fun deleteAllowedName(@RequestBody allowedNames: AllowedNamesDto) {
         allowedNames.names.forEach { name ->
             allowedNameService.deleteAllowedName(name)
+        }
+    }
+}
+
+@RestController
+@RequestMapping("/enrollments")
+class AllowedEnrollmentController(
+    private val allowedEnrollmentService: AllowedEnrollmentService
+) {
+    @GetMapping
+    fun getAllowedEnrollmentNumbers(): List<String> {
+        return allowedEnrollmentService.getAllowedEnrollmentNumbers()
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    fun addAllowedEnrollmentNumbers(@RequestBody allowedEnrollmentDto: AllowedEnrollmentDto) {
+        allowedEnrollmentService.addAllowedEnrollmentNumbers(allowedEnrollmentDto.enrollmentNumber)
+    }
+
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteAllowedEnrollmentNumber(@RequestBody allowedEnrollmentDto: AllowedEnrollmentDto) {
+        allowedEnrollmentDto.enrollmentNumber.forEach { enrollmentNumber ->
+            allowedEnrollmentService.deleteAllowedEnrollmentNumber(enrollmentNumber)
         }
     }
 }

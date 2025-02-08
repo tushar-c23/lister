@@ -1,5 +1,7 @@
 package com.damodar.ranklist
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 
@@ -8,34 +10,60 @@ class RankListService(
     private val userRepository: UserRepository,
     private val userService: UserService
 ) {
-//    fun getUserRankList(id: String): List<RankRecord> {
-//        val user = userRepository.findUserById(id) ?: return emptyList()
-//        return user.rankList.split("\n").mapIndexed { index, name ->
-//            RankRecord(index + 1, name)
-//        }
-//    }
+    private val objectMapper = jacksonObjectMapper()
 
-    fun getUserRankList(id: String): String {
-        val user = userService.getUser(id) ?: return "User not found"
-        return user.rankList
+    fun getUserRankList(id: String): RankListDto {
+        val user = userService.getUser(id) ?: throw IllegalArgumentException("User not found")
+        try {
+            val rankListDto = objectMapper.readValue<RankListDto>(user.rankList)
+            return rankListDto
+        } catch (e: Exception) {
+            return RankListDto(
+                listOf(
+                    RankRecord(
+                        0,
+                        "Shashank Sati"
+                    )
+                )
+            )
+        }
     }
 
-    fun upsertRankList(id: String, rankList: String) {
+    fun upsertRankList(id: String, rankList: RankListDto) {
         val user = userService.getUser(id) ?: throw IllegalArgumentException("User not found")
-        user.rankList = rankList
+        user.rankList = objectMapper.writeValueAsString(rankList)
         userRepository.save(user)
+    }
+
+    fun generateCommonRankList(): RankListDto {
+        val users = userRepository.findAll()
+        val rankMap = mutableMapOf<String, MutableList<Int>>()
+
+        users.forEach { user ->
+            val rankListDto = objectMapper.readValue<RankListDto>(user.rankList)
+            rankListDto.rankList.forEach { rankRecord ->
+                rankMap.computeIfAbsent(rankRecord.name) { mutableListOf() }.add(rankRecord.rank)
+            }
+        }
+
+        val averageRankList = rankMap.map { (name, ranks) ->
+            val averageRank = ranks.average()
+            RankRecord(averageRank.toInt(), name)
+        }.sortedBy { it.rank }
+
+        return RankListDto(averageRankList.take(10))
     }
 }
 
 @Service
 class UserService(
     private val userRepository: UserRepository,
-    private val passwordEncoder: PasswordEncoder
+    private val passwordEncoder: PasswordEncoder,
+    private val allowedEnrollmentService: AllowedEnrollmentService
 ) {
-    val ALLOWED_ENOLLMENT_NUMBERS = setOf("2111EC033","2111EC034")
 
     fun createUser(id: String, password: String) {
-        if (!ALLOWED_ENOLLMENT_NUMBERS.contains(id)) {
+        if (!allowedEnrollmentService.isAllowed(id)) {
             throw IllegalArgumentException("Invalid enrollment number")
         }
 
@@ -80,5 +108,32 @@ class AllowedNameService(
     fun deleteAllowedName(name: String) {
         val allowedName = allowedNameRepository.findAllowedNameByName(name) ?: throw IllegalArgumentException("Name not found")
         allowedNameRepository.delete(allowedName)
+    }
+}
+
+@Service
+class AllowedEnrollmentService(
+    private val allowedEnrollmentNumberRepository: AllowedEnrollmentNumberRepository
+) {
+    fun isAllowed(enrollmentNumber: String): Boolean {
+        return allowedEnrollmentNumberRepository.findAllowedEnrollmentNumberByEnrollmentNumber(enrollmentNumber) != null
+    }
+
+    fun getAllowedEnrollmentNumbers(): List<String> {
+        return allowedEnrollmentNumberRepository.findAll().map { it.enrollmentNumber }
+    }
+
+    fun addAllowedEnrollmentNumbers(enrollmentNumbers: List<String>) {
+        val enrollmentNumbersInDb = allowedEnrollmentNumberRepository.findAll().map { it.enrollmentNumber }
+        enrollmentNumbers.forEach {
+            if (!enrollmentNumbersInDb.contains(it)) {
+                allowedEnrollmentNumberRepository.save(AllowedEnrollmentNumber(enrollmentNumber = it))
+            }
+        }
+    }
+
+    fun deleteAllowedEnrollmentNumber(enrollmentNumber: String) {
+        val allowedEnrollmentNumber = allowedEnrollmentNumberRepository.findAllowedEnrollmentNumberByEnrollmentNumber(enrollmentNumber) ?: throw IllegalArgumentException("Enrollment number not found")
+        allowedEnrollmentNumberRepository.delete(allowedEnrollmentNumber)
     }
 }

@@ -16,3 +16,9 @@ class AllowedName(
     @Id @GeneratedValue val id: Long? = null,
     val name: String
 )
+
+@Entity
+class AllowedEnrollmentNumber(
+    @Id @GeneratedValue val id: Long? = null,
+    val enrollmentNumber: String
+)

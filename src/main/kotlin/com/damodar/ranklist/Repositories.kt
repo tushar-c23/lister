@@ -9,3 +9,7 @@ interface UserRepository: JpaRepository<User, String> {
 interface AllowedNameRepository: JpaRepository<AllowedName, Long> {
     fun findAllowedNameByName(name: String): AllowedName?
 }
+
+interface AllowedEnrollmentNumberRepository: JpaRepository<AllowedEnrollmentNumber, Long> {
+    fun findAllowedEnrollmentNumberByEnrollmentNumber(enrollmentNumber: String): AllowedEnrollmentNumber?
+}
